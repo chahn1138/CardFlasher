@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AWS AI Practitioner — Study Deck</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a212b;
+    --panel-2: #222c38;
+    --ink: #e6edf3;
+    --muted: #8b98a5;
+    --accent: #ff9900;        /* AWS orange */
+    --accent-ink: #1a1100;
+    --good: #2ea043;
+    --bad: #d2604a;
+    --line: #2b3643;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    background: var(--panel);
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+  header h1 .mark { color: var(--accent); }
+  .spacer { flex: 1 1 auto; }
+  select, button {
+    font: inherit;
+    color: var(--ink);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 7px 12px;
+    cursor: pointer;
+  }
+  select:hover, button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button.ghost { background: transparent; }
+  button:disabled { opacity: .4; cursor: default; border-color: var(--line); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: transparent; }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+  main {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 18px;
+  }
+  .card {
+    width: min(820px, 100%);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: 0 18px 50px rgba(0,0,0,.35);
+    overflow: hidden;
+  }
+  .card .meta {
+    display: flex; gap: 10px; align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12.5px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 2px 10px;
+    color: var(--muted);
+  }
+  .chip.diff-easy { color: #7ee2a8; border-color: #2e5b41; }
+  .chip.diff-medium { color: #ffd479; border-color: #6b561f; }
+  .chip.diff-hard { color: #ff9f8f; border-color: #6b332a; }
+  .card .body { padding: 22px 24px 8px; }
+  .q { font-size: 20px; line-height: 1.45; margin: 4px 0 18px; }
+
+  .hint {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border-left: 3px solid var(--accent);
+    background: rgba(255,153,0,.08);
+    border-radius: 0 8px 8px 0;
+    color: #ffe6bf;
+    font-size: 14.5px;
+  }
+  .reveal {
+    margin: 4px 0 8px;
+    padding: 16px 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel-2);
+  }
+  .reveal .a { font-size: 18px; font-weight: 600; margin: 0 0 8px; color: #d7ffe2; }
+  .reveal .why { color: var(--muted); font-size: 14.5px; margin: 0; }
+
+  .options { display: grid; gap: 10px; margin: 4px 0 14px; }
+  .option {
+    text-align: left;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+  }
+  .option:hover { border-color: var(--accent); }
+  .option.correct { border-color: var(--good); background: rgba(46,160,67,.14); }
+  .option.wrong { border-color: var(--bad); background: rgba(210,96,74,.14); }
+  .option .dot { color: var(--muted); margin-right: 8px; font-variant-numeric: tabular-nums; }
+
+  .actions {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    padding: 8px 24px 22px;
+  }
+  .grade { display: flex; gap: 10px; }
+  .grade .got { border-color: var(--good); color: #9af2b5; }
+  .grade .miss { border-color: var(--bad); color: #ffb4a4; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    padding: 10px 20px;
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    font-size: 13px; color: var(--muted);
+  }
+  .bar { flex: 1 1 220px; height: 8px; background: var(--panel-2); border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
+  .bar > i { display: block; height: 100%; width: 0%; background: var(--accent); transition: width .25s ease; }
+  .stat b { color: var(--ink); }
+  kbd {
+    font: 12px ui-monospace, Menlo, Consolas, monospace;
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-bottom-width: 2px; border-radius: 6px; padding: 1px 6px; color: var(--ink);
+  }
+  .empty { color: var(--muted); text-align: center; }
+  a.reset { color: var(--muted); text-decoration: underline dotted; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="mark">AWS</span> AI Practitioner — Study Deck</h1>
+  <div class="spacer"></div>
+  <label class="stat">Deck&nbsp;
+    <select id="deckSel"></select>
+  </label>
+  <label class="stat">Topic&nbsp;
+    <select id="topicSel"><option value="">All</option></select>
+  </label>
+  <div class="seg" id="modeSeg">
+    <button data-mode="flash" class="on">Flashcard</button>
+    <button data-mode="quiz">Quiz</button>
+  </div>
+  <button id="shuffleBtn" class="ghost" title="Shuffle (s)">Shuffle</button>
+</header>
+
+<main>
+  <div class="card" id="card">
+    <div class="meta">
+      <span class="chip" id="topicChip">topic</span>
+      <span class="chip" id="diffChip">difficulty</span>
+      <div class="spacer"></div>
+      <span id="counter">0 / 0</span>
+    </div>
+    <div class="body">
+      <p class="q" id="q">Loading…</p>
+      <div id="hintBox" class="hint" hidden></div>
+      <div id="options" class="options" hidden></div>
+      <div id="revealBox" class="reveal" hidden>
+        <p class="a" id="answer"></p>
+        <p class="why" id="why"></p>
+      </div>
+    </div>
+    <div class="actions" id="actions">
+      <button id="hintBtn" class="ghost">Hint</button>
+      <button id="revealBtn" class="primary">Reveal</button>
+      <div class="spacer"></div>
+      <div class="grade" id="grade" hidden>
+        <button class="got" id="gotBtn">Got it</button>
+        <button class="miss" id="missBtn">Missed</button>
+      </div>
+      <button id="nextBtn" class="ghost" hidden>Next ›</button>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="bar"><i id="barFill"></i></div>
+  <span class="stat">Seen <b id="sSeen">0</b></span>
+  <span class="stat">Got <b id="sGot">0</b></span>
+  <span class="stat">Missed <b id="sMiss">0</b></span>
+  <span class="spacer"></span>
+  <span><kbd>Space</kbd> reveal · <kbd>H</kbd> hint · <kbd>1</kbd> got · <kbd>2</kbd> missed · <kbd>→</kbd> next · <kbd>S</kbd> shuffle</span>
+  <a class="reset" id="resetBtn">reset progress</a>
+</footer>
+
+<!-- ===== Deck data files (add more lines as you create decks) ===== -->
+<script>
+  // Decks register themselves into this registry.
+  window.__DECKS__ = [];
+  function registerDeck(deck) { window.__DECKS__.push(deck); }
+</script>
+<script src="decks/model-deployment.js"></script>
+
+<!-- ===== Player engine ===== -->
+<script>
+(function () {
+  "use strict";
+  const decks = window.__DECKS__ || [];
+  const $ = (id) => document.getElementById(id);
+  const LSKEY = "awsaip.progress.v1";
+
+  // ---- state ----
+  let deckIdx = 0;
+  let mode = "flash";          // "flash" | "quiz"
+  let topicFilter = "";
+  let order = [];              // array of card indices into current deck
+  let pos = 0;                 // position within order
+  let answered = false;        // current card has been revealed/answered
+  let stats = loadStats();
+
+  function loadStats() {
+    try { return JSON.parse(localStorage.getItem(LSKEY)) || {}; }
+    catch { return {}; }
+  }
+  function saveStats() { localStorage.setItem(LSKEY, JSON.stringify(stats)); }
+
+  function deckStats() {
+    const id = decks[deckIdx].id;
+    stats[id] = stats[id] || { seen: 0, got: 0, miss: 0, cards: {} };
+    return stats[id];
+  }
+
+  function currentCards() {
+    const cards = decks[deckIdx].cards;
+    return topicFilter ? cards.filter(c => c.topic === topicFilter) : cards;
+  }
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function rebuildOrder(doShuffle) {
+    const cards = currentCards();
+    order = cards.map((_, i) => i);
+    if (doShuffle) shuffle(order);
+    pos = 0;
+  }
+
+  // ---- rendering ----
+  function fillSelects() {
+    $("deckSel").innerHTML = decks
+      .map((d, i) => `<option value="${i}">${escapeHtml(d.title)}</option>`)
+      .join("");
+    fillTopics();
+  }
+
+  function fillTopics() {
+    const topics = [...new Set(decks[deckIdx].cards.map(c => c.topic).filter(Boolean))];
+    $("topicSel").innerHTML =
+      `<option value="">All topics</option>` +
+      topics.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+    $("topicSel").value = topicFilter;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, m =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+  }
+
+  function quizEligible(card) {
+    return mode === "quiz" && card.correct && Array.isArray(card.distractors) && card.distractors.length;
+  }
+
+  function render() {
+    const cards = currentCards();
+    if (!cards.length) {
+      $("q").textContent = "No cards match this filter.";
+      ["hintBox", "options", "revealBox"].forEach(x => $(x).hidden = true);
+      $("actions").style.visibility = "hidden";
+      $("counter").textContent = "0 / 0";
+      return;
+    }
+    $("actions").style.visibility = "visible";
+    answered = false;
+
+    const card = cards[order[pos]];
+
+    $("topicChip").textContent = card.topic || "general";
+    const diff = (card.difficulty || "medium").toLowerCase();
+    $("diffChip").textContent = diff;
+    $("diffChip").className = "chip diff-" + diff;
+    $("counter").textContent = `${pos + 1} / ${order.length}`;
+    $("q").textContent = card.q;
+
+    // reset panels
+    const hintBox = $("hintBox");
+    hintBox.hidden = true;
+    hintBox.textContent = card.hint ? "💡 " + card.hint : "";
+    $("hintBtn").hidden = !card.hint;
+    $("hintBtn").disabled = false;
+
+    $("revealBox").hidden = true;
+    $("answer").textContent = card.a || "";
+    $("why").textContent = card.why || "";
+    $("why").hidden = !card.why;
+
+    $("grade").hidden = true;
+    $("nextBtn").hidden = true;
+
+    // mode-specific
+    const optsBox = $("options");
+    if (quizEligible(card)) {
+      const opts = shuffle([card.correct, ...card.distractors]);
+      optsBox.hidden = false;
+      optsBox.innerHTML = opts.map((o, i) =>
+        `<button class="option" data-val="${escapeHtml(o)}">
+           <span class="dot">${String.fromCharCode(65 + i)}</span>${escapeHtml(o)}
+         </button>`).join("");
+      [...optsBox.querySelectorAll(".option")].forEach(btn =>
+        btn.addEventListener("click", () => pickOption(btn, card)));
+      $("revealBtn").hidden = false;
+      $("revealBtn").textContent = "Show answer";
+    } else {
+      optsBox.hidden = true;
+      $("revealBtn").hidden = false;
+      $("revealBtn").textContent = "Reveal";
+    }
+
+    updateFooter();
+  }
+
+  function showHint() {
+    const card = currentCards()[order[pos]];
+    if (!card.hint) return;
+    $("hintBox").hidden = false;
+    $("hintBtn").disabled = true;
+  }
+
+  function reveal() {
+    if (answered) return;
+    $("revealBox").hidden = false;
+    $("revealBtn").hidden = true;
+    $("grade").hidden = false;
+    answered = true;
+    const ds = deckStats();
+    const card = currentCards()[order[pos]];
+    if (!ds.cards[card.id]) { ds.seen++; }
+    ds.cards[card.id] = ds.cards[card.id] || { got: 0, miss: 0 };
+    saveStats();
+    updateFooter();
+  }
+
+  function pickOption(btn, card) {
+    if (answered) return;
+    const chosen = btn.dataset.val;
+    const correct = chosen === card.correct;
+    [...$("options").querySelectorAll(".option")].forEach(b => {
+      if (b.dataset.val === card.correct) b.classList.add("correct");
+      else if (b === btn) b.classList.add("wrong");
+      b.disabled = true;
+    });
+    reveal();
+    // auto-grade from the quiz choice
+    grade(correct, true);
+  }
+
+  function grade(got, fromQuiz) {
+    const ds = deckStats();
+    const card = currentCards()[order[pos]];
+    const rec = ds.cards[card.id] = ds.cards[card.id] || { got: 0, miss: 0 };
+    if (got) { ds.got++; rec.got++; }
+    else { ds.miss++; rec.miss++; }
+    saveStats();
+    $("grade").hidden = true;
+    $("nextBtn").hidden = false;
+    if (!fromQuiz) $("nextBtn").focus();
+    updateFooter();
+  }
+
+  function next() {
+    if (pos + 1 >= order.length) {
+      // loop back; reshuffle for variety
+      shuffle(order);
+      pos = 0;
+    } else {
+      pos++;
+    }
+    render();
+  }
+
+  function updateFooter() {
+    const ds = deckStats();
+    $("sSeen").textContent = ds.seen;
+    $("sGot").textContent = ds.got;
+    $("sMiss").textContent = ds.miss;
+    const total = decks[deckIdx].cards.length;
+    const pct = total ? Math.round((ds.seen / total) * 100) : 0;
+    $("barFill").style.width = pct + "%";
+  }
+
+  // ---- events ----
+  $("deckSel").addEventListener("change", e => {
+    deckIdx = +e.target.value;
+    topicFilter = "";
+    fillTopics();
+    rebuildOrder(false);
+    render();
+  });
+
+  $("topicSel").addEventListener("change", e => {
+    topicFilter = e.target.value;
+    rebuildOrder(false);
+    render();
+  });
+
+  [...$("modeSeg").children].forEach(b =>
+    b.addEventListener("click", () => {
+      mode = b.dataset.mode;
+      [...$("modeSeg").children].forEach(x => x.classList.toggle("on", x === b));
+      render();
+    }));
+
+  $("shuffleBtn").addEventListener("click", () => { rebuildOrder(true); render(); });
+  $("hintBtn").addEventListener("click", showHint);
+  $("revealBtn").addEventListener("click", reveal);
+  $("gotBtn").addEventListener("click", () => grade(true, false));
+  $("missBtn").addEventListener("click", () => grade(false, false));
+  $("nextBtn").addEventListener("click", next);
+
+  $("resetBtn").addEventListener("click", () => {
+    if (!confirm("Reset all study progress for every deck?")) return;
+    stats = {};
+    saveStats();
+    rebuildOrder(false);
+    render();
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.target.tagName === "SELECT") return;
+    const k = e.key.toLowerCase();
+    if (k === " " || k === "enter") {
+      e.preventDefault();
+      if (!answered) reveal(); else if (!$("nextBtn").hidden) next();
+    } else if (k === "h") { showHint(); }
+    else if (k === "1") { if (answered && !$("grade").hidden) grade(true, false); }
+    else if (k === "2") { if (answered && !$("grade").hidden) grade(false, false); }
+    else if (k === "arrowright") { if (!$("nextBtn").hidden) next(); }
+    else if (k === "s") { rebuildOrder(true); render(); }
+  });
+
+  // ---- boot ----
+  if (!decks.length) {
+    $("q").textContent = "No decks loaded. Add a <script src=\"decks/…\"> line.";
+    $("actions").style.visibility = "hidden";
+  } else {
+    fillSelects();
+    rebuildOrder(false);
+    render();
+  }
+})();
+</script>
+</body>
+</html>
