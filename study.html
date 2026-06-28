@@ -19,6 +19,7 @@
     --radius: 14px;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; height: 100%; }
   body {
     background: var(--bg);
@@ -122,7 +123,9 @@
   .option:hover { border-color: var(--accent); }
   .option.correct { border-color: var(--good); background: rgba(46,160,67,.14); }
   .option.wrong { border-color: var(--bad); background: rgba(210,96,74,.14); }
+  .option.selected { border-color: var(--accent); background: rgba(255,153,0,.12); }
   .option .dot { color: var(--muted); margin-right: 8px; font-variant-numeric: tabular-nums; }
+  .selnote { color: var(--muted); font-size: 13px; margin: 0 0 4px; }
 
   .actions {
     display: flex; gap: 10px; flex-wrap: wrap;
@@ -149,6 +152,15 @@
   }
   .empty { color: var(--muted); text-align: center; }
   a.reset { color: var(--muted); text-decoration: underline dotted; cursor: pointer; }
+  #dbgPanel {
+    position: fixed; bottom: 54px; left: 12px; z-index: 50;
+    max-width: 340px; margin: 0;
+    background: rgba(8,12,18,.93); color: #9fe0c0;
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px;
+    font: 11.5px/1.5 ui-monospace, Menlo, Consolas, monospace;
+    white-space: pre-wrap; box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  }
 </style>
 </head>
 <body>
@@ -188,6 +200,7 @@
     <div class="actions" id="actions">
       <button id="hintBtn" class="ghost">Hint</button>
       <button id="revealBtn" class="primary">Reveal</button>
+      <button id="submitBtn" class="primary" hidden>Submit</button>
       <div class="spacer"></div>
       <div class="grade" id="grade" hidden>
         <button class="got" id="gotBtn">Got it</button>
@@ -204,9 +217,11 @@
   <span class="stat">Got <b id="sGot">0</b></span>
   <span class="stat">Missed <b id="sMiss">0</b></span>
   <span class="spacer"></span>
-  <span><kbd>Space</kbd> reveal · <kbd>H</kbd> hint · <kbd>1</kbd> got · <kbd>2</kbd> missed · <kbd>→</kbd> next · <kbd>S</kbd> shuffle</span>
+  <span><kbd>Space</kbd> reveal · <kbd>H</kbd> hint · <kbd>1</kbd> got · <kbd>2</kbd> missed · <kbd>→</kbd> next · <kbd>S</kbd> shuffle · <kbd>D</kbd> debug</span>
   <a class="reset" id="resetBtn">reset progress</a>
+  <span id="dbgWrap" hidden> · <a class="reset" id="copyLogBtn">copy log</a> · <a class="reset" id="dlLogBtn">download log</a></span>
 </footer>
+<pre id="dbgPanel" hidden></pre>
 
 <!-- ===== Deck data files (add more lines as you create decks) ===== -->
 <script>
@@ -215,6 +230,7 @@
   function registerDeck(deck) { window.__DECKS__.push(deck); }
 </script>
 <script src="decks/model-deployment.js"></script>
+<script src="decks/clarify.js"></script>
 
 <!-- ===== Player engine ===== -->
 <script>
@@ -233,6 +249,81 @@
   let answered = false;        // current card has been revealed/answered
   let stats = loadStats();
 
+  // ---- debug logging ----
+  // Enable with ?debug=1 in the URL, by pressing D, or it persists via localStorage.
+  let DEBUG = (new URLSearchParams(location.search).get("debug") === "1")
+            || localStorage.getItem("awsaip.debug") === "1";
+  const LOG = [];               // rolling event log (kept even when DEBUG is off)
+  function dlog(event, data) {
+    const entry = { t: new Date().toISOString(), event };
+    if (data !== undefined) entry.data = data;
+    LOG.push(entry);
+    if (LOG.length > 800) LOG.shift();
+    if (DEBUG) { try { console.log(`[CardFlasher] ${event}`, data ?? ""); } catch (e) {} dbgUpdate(); }
+  }
+  function snapshot() {
+    let cardId = null;
+    try { const c = currentCards()[order[pos]]; cardId = c && c.id; } catch (e) {}
+    return {
+      deck: decks[deckIdx] && decks[deckIdx].id,
+      mode, topicFilter, pos, orderLen: order.length, answered, cardId,
+      optionsHidden: $("options").hidden,
+      optionsShown: $("options").querySelectorAll(".option").length,
+      revealHidden: $("revealBox").hidden,
+      gradeHidden: $("grade").hidden,
+      submitHidden: $("submitBtn").hidden,
+      nextHidden: $("nextBtn").hidden
+    };
+  }
+  function dumpText() {
+    return JSON.stringify({
+      meta: { when: new Date().toISOString(), url: location.href, ua: navigator.userAgent, state: snapshot() },
+      events: LOG
+    }, null, 2);
+  }
+  function downloadLog() {
+    const blob = new Blob([dumpText()], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `cardflasher-log-${Date.now()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    dlog("download-log");
+  }
+  async function copyLog() {
+    const text = dumpText();
+    try { await navigator.clipboard.writeText(text); alert("Debug log copied to clipboard."); }
+    catch (e) { downloadLog(); }
+  }
+  function dbgUpdate() {
+    const panel = $("dbgPanel");
+    if (!panel) return;
+    panel.hidden = !DEBUG;
+    $("dbgWrap").hidden = !DEBUG;
+    if (!DEBUG) return;
+    const s = snapshot();
+    panel.textContent =
+      `DEBUG · ${s.deck} · ${s.mode}\n` +
+      `card: ${s.cardId}\n` +
+      `pos ${s.pos + 1}/${s.orderLen} · answered=${s.answered}\n` +
+      `opts hidden=${s.optionsHidden} shown=${s.optionsShown}\n` +
+      `reveal hidden=${s.revealHidden} · grade hidden=${s.gradeHidden}\n` +
+      `submit hidden=${s.submitHidden} · next hidden=${s.nextHidden}\n` +
+      `events: ${LOG.length}  (press L to copy)`;
+  }
+  function setDebug(on) {
+    DEBUG = on;
+    if (on) localStorage.setItem("awsaip.debug", "1");
+    else localStorage.removeItem("awsaip.debug");
+    dbgUpdate();
+    dlog("debug-toggle", { on });
+  }
+  window.addEventListener("error", e =>
+    dlog("window-error", { message: e.message, source: e.filename, line: e.lineno, col: e.colno,
+      stack: e.error && e.error.stack ? String(e.error.stack).split("\n").slice(0, 4) : null }));
+  window.addEventListener("unhandledrejection", e =>
+    dlog("unhandled-rejection", { reason: String(e.reason) }));
+
   function loadStats() {
     try { return JSON.parse(localStorage.getItem(LSKEY)) || {}; }
     catch { return {}; }
@@ -245,9 +336,15 @@
     return stats[id];
   }
 
+  function isQuizCard(card) {
+    return card.correct && Array.isArray(card.distractors) && card.distractors.length > 0;
+  }
+
   function currentCards() {
-    const cards = decks[deckIdx].cards;
-    return topicFilter ? cards.filter(c => c.topic === topicFilter) : cards;
+    let cards = decks[deckIdx].cards;
+    if (topicFilter) cards = cards.filter(c => c.topic === topicFilter);
+    if (mode === "quiz") cards = cards.filter(isQuizCard);
+    return cards;
   }
 
   function shuffle(a) {
@@ -287,13 +384,15 @@
   }
 
   function quizEligible(card) {
-    return mode === "quiz" && card.correct && Array.isArray(card.distractors) && card.distractors.length;
+    return mode === "quiz" && isQuizCard(card);
   }
 
   function render() {
     const cards = currentCards();
     if (!cards.length) {
-      $("q").textContent = "No cards match this filter.";
+      $("q").textContent = mode === "quiz"
+        ? "No multiple-choice cards here. Switch to Flashcard mode, or choose another topic/deck."
+        : "No cards match this filter.";
       ["hintBox", "options", "revealBox"].forEach(x => $(x).hidden = true);
       $("actions").style.visibility = "hidden";
       $("counter").textContent = "0 / 0";
@@ -325,27 +424,51 @@
 
     $("grade").hidden = true;
     $("nextBtn").hidden = true;
+    $("submitBtn").hidden = true;
 
     // mode-specific
     const optsBox = $("options");
     if (quizEligible(card)) {
-      const opts = shuffle([card.correct, ...card.distractors]);
+      const correctArr = Array.isArray(card.correct) ? card.correct : [card.correct];
+      const isMulti = correctArr.length > 1;
+      card.__correctArr = correctArr;
+      card.__isMulti = isMulti;
+      const opts = shuffle([...correctArr, ...card.distractors]);
       optsBox.hidden = false;
-      optsBox.innerHTML = opts.map((o, i) =>
-        `<button class="option" data-val="${escapeHtml(o)}">
-           <span class="dot">${String.fromCharCode(65 + i)}</span>${escapeHtml(o)}
-         </button>`).join("");
-      [...optsBox.querySelectorAll(".option")].forEach(btn =>
-        btn.addEventListener("click", () => pickOption(btn, card)));
+      optsBox.innerHTML =
+        (isMulti ? `<div class="selnote">Select ${correctArr.length} answers</div>` : ``) +
+        opts.map((o, i) =>
+          `<button class="option" data-val="${escapeHtml(o)}">
+             <span class="dot">${String.fromCharCode(65 + i)}</span>${escapeHtml(o)}
+           </button>`).join("");
+      const optionBtns = [...optsBox.querySelectorAll(".option")];
+      if (isMulti) {
+        optionBtns.forEach(btn => btn.addEventListener("click", () => {
+          if (answered) return;
+          btn.classList.toggle("selected");
+          updateSubmit();
+        }));
+        $("submitBtn").hidden = false;
+        $("submitBtn").disabled = true;
+        $("revealBtn").className = "ghost";
+      } else {
+        optionBtns.forEach(btn => btn.addEventListener("click", () => pickOption(btn, card)));
+        $("submitBtn").hidden = true;
+        $("revealBtn").className = "primary";
+      }
       $("revealBtn").hidden = false;
       $("revealBtn").textContent = "Show answer";
     } else {
       optsBox.hidden = true;
+      optsBox.innerHTML = "";
+      $("submitBtn").hidden = true;
+      $("revealBtn").className = "primary";
       $("revealBtn").hidden = false;
       $("revealBtn").textContent = "Reveal";
     }
 
     updateFooter();
+    dlog("render", snapshot());
   }
 
   function showHint() {
@@ -357,6 +480,7 @@
 
   function reveal() {
     if (answered) return;
+    dlog("reveal", { cardId: (currentCards()[order[pos]] || {}).id });
     $("revealBox").hidden = false;
     $("revealBtn").hidden = true;
     $("grade").hidden = false;
@@ -373,6 +497,7 @@
     if (answered) return;
     const chosen = btn.dataset.val;
     const correct = chosen === card.correct;
+    dlog("pickOption", { cardId: card.id, chosen, correct });
     [...$("options").querySelectorAll(".option")].forEach(b => {
       if (b.dataset.val === card.correct) b.classList.add("correct");
       else if (b === btn) b.classList.add("wrong");
@@ -383,9 +508,49 @@
     grade(correct, true);
   }
 
+  function updateSubmit() {
+    $("submitBtn").disabled = !$("options").querySelector(".option.selected");
+  }
+
+  function smartReveal() {
+    if (answered) return;
+    const card = currentCards()[order[pos]];
+    dlog("smartReveal", { cardId: card.id, isMulti: !!card.__isMulti });
+    if (quizEligible(card) && card.__isMulti) {
+      const correctSet = new Set(card.__correctArr);
+      [...$("options").querySelectorAll(".option")].forEach(b => {
+        if (correctSet.has(b.dataset.val)) b.classList.add("correct");
+        b.classList.remove("selected");
+        b.disabled = true;
+      });
+      $("submitBtn").hidden = true;
+    }
+    reveal();
+  }
+
+  function gradeMulti(card) {
+    if (answered) return;
+    const correctSet = new Set(card.__correctArr);
+    const optionBtns = [...$("options").querySelectorAll(".option")];
+    const chosen = optionBtns.filter(b => b.classList.contains("selected")).map(b => b.dataset.val);
+    const ok = chosen.length === correctSet.size && chosen.every(v => correctSet.has(v));
+    dlog("gradeMulti", { cardId: card.id, chosen, correct: card.__correctArr, ok });
+    optionBtns.forEach(b => {
+      const val = b.dataset.val;
+      if (correctSet.has(val)) b.classList.add("correct");
+      else if (b.classList.contains("selected")) b.classList.add("wrong");
+      b.classList.remove("selected");
+      b.disabled = true;
+    });
+    $("submitBtn").hidden = true;
+    reveal();
+    grade(ok, true);
+  }
+
   function grade(got, fromQuiz) {
     const ds = deckStats();
     const card = currentCards()[order[pos]];
+    dlog("grade", { cardId: card.id, got, fromQuiz });
     const rec = ds.cards[card.id] = ds.cards[card.id] || { got: 0, miss: 0 };
     if (got) { ds.got++; rec.got++; }
     else { ds.miss++; rec.miss++; }
@@ -397,6 +562,7 @@
   }
 
   function next() {
+    dlog("next", { from: pos });
     if (pos + 1 >= order.length) {
       // loop back; reshuffle for variety
       shuffle(order);
@@ -435,13 +601,19 @@
   [...$("modeSeg").children].forEach(b =>
     b.addEventListener("click", () => {
       mode = b.dataset.mode;
+      dlog("mode-switch", { mode });
       [...$("modeSeg").children].forEach(x => x.classList.toggle("on", x === b));
+      rebuildOrder(false);
       render();
     }));
 
   $("shuffleBtn").addEventListener("click", () => { rebuildOrder(true); render(); });
   $("hintBtn").addEventListener("click", showHint);
-  $("revealBtn").addEventListener("click", reveal);
+  $("revealBtn").addEventListener("click", smartReveal);
+  $("submitBtn").addEventListener("click", () => {
+    const card = currentCards()[order[pos]];
+    if (quizEligible(card) && card.__isMulti) gradeMulti(card);
+  });
   $("gotBtn").addEventListener("click", () => grade(true, false));
   $("missBtn").addEventListener("click", () => grade(false, false));
   $("nextBtn").addEventListener("click", next);
@@ -454,17 +626,28 @@
     render();
   });
 
+  $("copyLogBtn").addEventListener("click", copyLog);
+  $("dlLogBtn").addEventListener("click", downloadLog);
+
   document.addEventListener("keydown", e => {
     if (e.target.tagName === "SELECT") return;
     const k = e.key.toLowerCase();
     if (k === " " || k === "enter") {
       e.preventDefault();
-      if (!answered) reveal(); else if (!$("nextBtn").hidden) next();
+      if (answered) { if (!$("nextBtn").hidden) next(); return; }
+      const card = currentCards()[order[pos]];
+      if (quizEligible(card) && card.__isMulti && $("options").querySelector(".option.selected")) {
+        gradeMulti(card);
+      } else {
+        smartReveal();
+      }
     } else if (k === "h") { showHint(); }
     else if (k === "1") { if (answered && !$("grade").hidden) grade(true, false); }
     else if (k === "2") { if (answered && !$("grade").hidden) grade(false, false); }
     else if (k === "arrowright") { if (!$("nextBtn").hidden) next(); }
     else if (k === "s") { rebuildOrder(true); render(); }
+    else if (k === "d") { setDebug(!DEBUG); }
+    else if (k === "l") { if (DEBUG) copyLog(); }
   });
 
   // ---- boot ----
@@ -476,6 +659,8 @@
     rebuildOrder(false);
     render();
   }
+  dlog("boot", { debug: DEBUG, decks: decks.length });
+  dbgUpdate();
 })();
 </script>
 </body>

@@ -85,14 +85,19 @@ object literal passed to `registerDeck`; no logic belongs there.
   a: "…",                  // REQUIRED full correct answer (shown on reveal)
   why: "…",                // OPTIONAL rationale + distractor breakdown
   correct: "Asynchronous inference",         // OPTIONAL short answer -> enables Quiz mode
+                                             //   string = single-answer; array = multiple-response
   distractors: ["Real-time inference", …]    // OPTIONAL short wrong options (with `correct`)
 }
 ```
 
 Eligibility:
 - **Flashcard mode:** every card.
-- **Quiz mode (MCQ):** only cards with both `correct` and a non-empty `distractors` array.
-  Others are silently shown as flashcards even in Quiz mode.
+- **Quiz mode (MCQ):** shows **only** cards with both `correct` and a non-empty `distractors`
+  array. Recall-only cards are filtered out of Quiz mode (they reappear in Flashcard mode).
+  Switching mode re-deals the order so the view changes immediately.
+  - `correct` as a **string** → single-answer; graded on the first option click.
+  - `correct` as an **array** (2+) → multiple-response; shows a "Select N" prompt and grades
+    on **Submit** using an exact-set match.
 
 Field invariants:
 - `id` is unique across the whole deck and never reused/renumbered.
@@ -114,6 +119,11 @@ Field invariants:
 ### 5.2 Modes
 - **Flashcard** — recall-first; user grades themselves.
 - **Quiz** — multiple choice; auto-graded. Options are shuffled each render.
+  - *Single-answer*: click an option → correct highlights green, wrong choice red, all lock,
+    answer reveals, card auto-grades.
+  - *Multiple-response*: a "Select N" prompt appears; user toggles options and clicks **Submit**.
+    Grading requires the selected set to exactly equal the correct set. **Show answer** reveals
+    the correct set and falls back to self-grading.
 
 ### 5.3 Filters & ordering
 - **Deck** dropdown — switches between registered decks.
@@ -126,8 +136,7 @@ Field invariants:
 - `seen` increments the first time a card is revealed/answered.
 - Footer shows Seen / Got / Missed and a progress bar = `seen / totalCardsInDeck`.
 - **reset progress** clears all decks (with confirm).
-- Schema changes must bump the key suffix (`v1` → `v2`) rather than mutate old data.
-
+- Schema changes must bump the key suffix (`v1` → `v2`) rather than mutate old data.- A separate `localStorage` key `awsaip.debug` persists the debug-logging on/off flag.
 ### 5.5 Keyboard shortcuts
 | Key | Action |
 |-----|--------|
@@ -137,6 +146,21 @@ Field invariants:
 | `2` | Grade **Missed** |
 | `→` | Next |
 | `S` | Shuffle |
+| `D` | Toggle debug logging |
+| `L` | Copy debug log (when debug is on) |
+
+### 5.7 Debug logging
+- **Enable** via `?debug=1` in the URL, by pressing `D`, or it persists across reloads
+  in `localStorage` under `awsaip.debug`.
+- A rolling in-memory event log (last ~800 events) is **always** recorded, even when debug
+  is off, so the events leading up to a problem are captured. Logged events include
+  `render` (with a full state snapshot), `reveal`, `pickOption`, `gradeMulti`, `grade`,
+  `next`, `mode-switch`, `boot`, and any `window-error` / `unhandled-rejection`.
+- When on, an on-screen panel (bottom-left) shows live state, and `console.log` mirrors events.
+- **Export:** press `L` (or the footer links) to copy the log as JSON to the clipboard;
+  if clipboard access is blocked (e.g. some `file://` contexts) it falls back to downloading
+  `cardflasher-log-<timestamp>.json`. The dump includes a metadata header (URL, user agent,
+  current state snapshot) plus the event list — paste/attach it to get help fast.
 
 ### 5.6 Accessibility / UX notes
 - Dark theme, AWS-orange accent, high-contrast answer panel.

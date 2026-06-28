@@ -41,6 +41,8 @@ asked, extend the engine — without breaking the contract between them.
   a: "The answer.",       // REQUIRED. The crisp correct answer shown on reveal.
   why: "Explanation.",    // OPTIONAL. Why it's right + why the tempting distractors are wrong.
   correct: "Short label", // OPTIONAL. Enables Quiz (MCQ) mode. SHORT form of the answer.
+                          //   - String  => single-answer multiple choice.
+                          //   - Array   => multiple-response ("Select N"); N = array length.
   distractors: [ ... ]    // OPTIONAL. Array of SHORT wrong options. Required with `correct`.
 }
 ```
@@ -48,6 +50,12 @@ asked, extend the engine — without breaking the contract between them.
 Rules:
 - `correct` + `distractors` **together** make a card eligible for Quiz mode. Provide both
   or neither. Recall-only cards (definitions, "what does it NOT do") omit them.
+- **Quiz mode shows only eligible cards;** recall-only cards appear in Flashcard mode. Aim to
+  give each deck a healthy share of MCQ cards so Quiz mode is well populated.
+- **Single-answer:** `correct` is a string. The player grades on the first option click.
+- **Multiple-response:** `correct` is an array of 2+ short labels. The player shows a
+  "Select N" prompt, lets the user toggle options, and grades on **Submit** (exact-set match).
+  Use this for real "choose TWO/THREE" exam questions.
 - `correct` must be the short form of `a`. Keep all options roughly parallel in length/style
   so the answer isn't obvious from formatting.
 - 3 distractors is the sweet spot (4 total options). Use real exam confusables as
@@ -102,7 +110,8 @@ Then register it in `study.html` by adding one line in the deck-loading block
 - Preserve existing `localStorage` data where reasonable; if the shape must change,
   bump the `LSKEY` version suffix (`awsaip.progress.v1` -> `v2`) rather than corrupting old data.
 - Keep keyboard shortcuts working: `Space`/`Enter` reveal-then-next, `H` hint,
-  `1` got, `2` missed, `→` next, `S` shuffle.
+  `1` got, `2` missed, `→` next, `S` shuffle. In multiple-response, `Space`/`Enter`
+  submits when options are selected, otherwise reveals the answer.
 
 ## Definition of done
 

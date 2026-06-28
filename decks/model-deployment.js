@@ -65,6 +65,17 @@ registerDeck({
       distractors: ["Real-time inference", "Batch transform", "Asynchronous inference"]
     },
     {
+      id: "inference-select-multi-001",
+      topic: "Inference type selection",
+      difficulty: "hard",
+      q: "Which TWO SageMaker inference options run WITHOUT keeping a persistent real-time endpoint warm?",
+      hint: "Think about which options are job-based or scale-to-zero.",
+      a: "Batch transform and Serverless inference.",
+      why: "Batch transform spins up resources for a job then tears them down; Serverless scales to zero between requests. Real-time and Asynchronous both rely on a provisioned endpoint (async still uses a managed endpoint with an internal queue).",
+      correct: ["Batch transform", "Serverless inference"],
+      distractors: ["Real-time inference", "Asynchronous inference"]
+    },
+    {
       id: "deploy-secure-api",
       topic: "Secure access",
       difficulty: "easy",
@@ -96,6 +107,17 @@ registerDeck({
       why: "Model Monitor automatically tracks model/data drift, data quality, and bias drift, and can notify via CloudWatch/SNS. The distractor SageMaker Clarify detects bias and explains predictions but does NOT monitor live drift over time.",
       correct: "Retrain + SageMaker Model Monitor",
       distractors: ["Retrain + SageMaker Clarify", "Use SageMaker Feature Store", "Redeploy with JumpStart"]
+    },
+    {
+      id: "drift-monitor-multi-001",
+      topic: "Post-deployment monitoring",
+      difficulty: "medium",
+      q: "A model's accuracy has degraded after several months in production. Which TWO actions fix the immediate problem AND prevent recurrence with alerts?",
+      hint: "One action fixes the model now; the other watches it automatically going forward.",
+      a: "Retrain the model AND enable SageMaker Model Monitor.",
+      why: "Retraining restores accuracy on current data; Model Monitor continuously tracks drift/data quality and can alert via CloudWatch/SNS. Clarify explains predictions / detects bias but has no time or threshold monitoring; Feature Store only manages features; JumpStart is a model hub.",
+      correct: ["Retrain the model", "Enable SageMaker Model Monitor"],
+      distractors: ["Enable SageMaker Clarify", "Store features in Feature Store", "Redeploy from JumpStart"]
     },
     {
       id: "monitor-vs-clarify-separator",
